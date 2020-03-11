@@ -28,10 +28,12 @@ import pickle
 import random
 import re
 import shutil
+from datetime import datetime
 from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+from tokenizers import ByteLevelBPETokenizer
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
@@ -72,7 +74,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
+HOME = os.environ['HOME']
 MODEL_CLASSES = {
     "gpt2": (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
     "openai-gpt": (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
@@ -233,7 +235,9 @@ def mask_tokens(inputs: torch.Tensor, tokenizer: PreTrainedTokenizer, args) -> T
 def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> Tuple[int, float]:
     """ Train the model """
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter()
+        import socket
+        current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+        tb_writer = SummaryWriter(log_dir=args.log_dir+'/'+args.name+'_'+current_time + '_' + socket.gethostname())
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
 
@@ -244,7 +248,7 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
 
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(
-        train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, collate_fn=collate
+        train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, collate_fn=collate,drop_last=True
     )
 
     if args.max_steps > 0:
@@ -439,7 +443,7 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
 
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(
-        eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, collate_fn=collate
+        eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, collate_fn=collate,drop_last=True
     )
 
     # multi-gpu evaluate
@@ -492,6 +496,12 @@ def main():
         type=str,
         required=True,
         help="The output directory where the model predictions and checkpoints will be written.",
+    )
+    parser.add_argument(
+        "--log_dir", default=HOME+"/data/tensorboard_logdir", help="Location of tensorboard log"
+    )
+    parser.add_argument(
+        "--name", required=True, help="experiment name"
     )
     parser.add_argument(
         "--model_type", type=str, required=True, help="The model architecture to be trained or fine-tuned.",
@@ -707,10 +717,20 @@ def main():
     elif args.model_name_or_path:
         tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, cache_dir=args.cache_dir)
     else:
-        raise ValueError(
-            "You are instantiating a new {} tokenizer. This is not supported, but you can do it from another script, save it,"
-            "and load it from here, using --tokenizer_name".format(tokenizer_class.__name__)
-        )
+        tokenizer_path = args.output_dir+"/Tokenizer"
+        if not os.path.isdir(tokenizer_path):
+            tokenizer = ByteLevelBPETokenizer()
+            tokenizer.train(files=[args.train_data_file], vocab_size=50_000, min_frequency=2,
+                            special_tokens=[
+                                "<s>",
+                                "<pad>",
+                                "</s>",
+                                "<unk>",
+                                "<mask>",
+                            ])
+            os.makedirs(tokenizer_path)
+            tokenizer.save(tokenizer_path)
+        tokenizer = tokenizer_class.from_pretrained(tokenizer_path,max_len=1024)
 
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len
