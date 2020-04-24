@@ -9,11 +9,12 @@ mkdir -p $OUTPUT_DIR
 export PYTHONPATH="../../":"${PYTHONPATH}"
 
 python finetune.py \
---data_dir=./cnn-dailymail/cnn_dm \
+--data_dir=$HOME/data/cnn_dm \
 --model_type=bart \
 --model_name_or_path=bart-large \
 --learning_rate=3e-5 \
---train_batch_size=4 \
---eval_batch_size=4 \
+--train_batch_size=2 \
+--eval_batch_size=2 \
 --output_dir=$OUTPUT_DIR \
+--n_gpu 2 \
 --do_train  $@
