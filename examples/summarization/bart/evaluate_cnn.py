@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 
+from examples.summarization.bart.finetune import SummarizationTrainer
 from transformers import BartForConditionalGeneration, BartTokenizer
 
 
@@ -20,8 +21,13 @@ def generate_summaries(
     examples: list, out_file: str, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE
 ):
     fout = Path(out_file).open("w")
-    model = BartForConditionalGeneration.from_pretrained(model_name).to(device)
-    tokenizer = BartTokenizer.from_pretrained("bart-large")
+
+    if model_name.endswith('.ckpt '):
+        model = SummarizationTrainer.load_from_checkpoint(model_name).model.to(device)
+    else:
+        model = BartForConditionalGeneration.from_pretrained(model_name).to(device)
+
+    tokenizer = BartTokenizer.from_pretrained("bart-large-cnn")
 
     max_length = 140
     min_length = 55
