@@ -16,11 +16,16 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
 
+def generate_write_summaries(out_file:str,examples: list, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE):
+    fout = Path(out_file).open("w")
+    for s in generate_summaries(examples,model_name,batch_size,device):
+        fout.write(s + "\n")
+        fout.flush()
+
 
 def generate_summaries(
-    examples: list, out_file: str, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE
+    examples: list, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE
 ):
-    fout = Path(out_file).open("w")
 
     if model_name.endswith('.ckpt '):
         model = SummarizationTrainer.load_from_checkpoint(model_name).model.to(device)
@@ -45,10 +50,8 @@ def generate_summaries(
             early_stopping=True,
             decoder_start_token_id=model.config.eos_token_id,
         )
-        dec = [tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=False) for g in summaries]
-        for hypothesis in dec:
-            fout.write(hypothesis + "\n")
-            fout.flush()
+        for g in summaries:
+            yield tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=False)
 
 
 def run_generate():
@@ -70,7 +73,7 @@ def run_generate():
     )
     args = parser.parse_args()
     examples = [" " + x.rstrip() for x in open(args.source_path).readlines()]
-    generate_summaries(examples, args.output_path, args.model_name, batch_size=args.bs, device=args.device)
+    generate_write_summaries(examples, args.output_path, args.model_name, batch_size=args.bs, device=args.device)
 
 
 if __name__ == "__main__":
