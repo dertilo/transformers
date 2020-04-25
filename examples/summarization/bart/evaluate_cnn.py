@@ -16,7 +16,7 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
 
-def generate_write_summaries(out_file:str,examples: list, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE):
+def generate_write_summaries(examples: list,out_file:str, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE):
     fout = Path(out_file).open("w")
     for s in generate_summaries(examples,model_name,batch_size,device):
         fout.write(s + "\n")
