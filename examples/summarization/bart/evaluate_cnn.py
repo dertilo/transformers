@@ -1,4 +1,5 @@
 import argparse
+import os
 from pathlib import Path
 
 import torch
@@ -32,7 +33,7 @@ def generate_summaries(
     else:
         model = BartForConditionalGeneration.from_pretrained(model_name).to(device)
 
-    tokenizer = BartTokenizer.from_pretrained("bart-large-cnn")
+    tokenizer = BartTokenizer.from_pretrained("bart-large")
 
     max_length = 140
     min_length = 55
@@ -57,19 +58,19 @@ def generate_summaries(
 def run_generate():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "source_path", type=str, help="like cnn_dm/test.source",
+        "--source_path", type=str, help="like cnn_dm/test.source",default=os.environ['HOME']+"/hpc/data/cnn_dm/val.source",required=False
     )
     parser.add_argument(
-        "output_path", type=str, help="where to save summaries",
+        "--output_path", type=str, help="where to save summaries",default='./summaries.txt',required=False
     )
     parser.add_argument(
-        "model_name", type=str, default="bart-large-cnn", help="like bart-large-cnn",
+        "--model_name", type=str, default="/home/tilo/data/bart_coqa_seq2seq/checkpointepoch=0.ckpt", help="like bart-large-cnn",required=False
     )
     parser.add_argument(
         "--device", type=str, required=False, default=DEFAULT_DEVICE, help="cuda, cuda:1, cpu etc.",
     )
     parser.add_argument(
-        "--bs", type=int, default=8, required=False, help="batch size: how many to summarize at a time",
+        "--bs", type=int, default=1, required=False, help="batch size: how many to summarize at a time",
     )
     args = parser.parse_args()
     examples = [" " + x.rstrip() for x in open(args.source_path).readlines()]
