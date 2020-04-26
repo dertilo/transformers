@@ -1,6 +1,6 @@
-export OUTPUT_DIR_NAME=bart_sum
+export OUTPUT_DIR_NAME=bart_coqa_seq2seq
 export CURRENT_DIR=${PWD}
-export OUTPUT_DIR=${CURRENT_DIR}/${OUTPUT_DIR_NAME}
+export OUTPUT_DIR=$HOME/${OUTPUT_DIR_NAME}
 
 # Make output directory if it doesn't exist
 mkdir -p $OUTPUT_DIR
@@ -9,7 +9,7 @@ mkdir -p $OUTPUT_DIR
 export PYTHONPATH="../../":"${PYTHONPATH}"
 
 python finetune.py \
---data_dir=$HOME/data/cnn_dm \
+--data_dir=$HOME/data/coqa_seq2seq \
 --model_type=bart \
 --model_name_or_path=bart-large \
 --learning_rate=3e-5 \
