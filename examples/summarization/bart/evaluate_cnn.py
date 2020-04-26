@@ -27,7 +27,7 @@ def generate_summaries(
     examples: list, model_name: str, batch_size: int = 8, device: str = DEFAULT_DEVICE
 ):
 
-    if model_name.endswith('.ckpt '):
+    if model_name.endswith('.ckpt'):
         model = SummarizationTrainer.load_from_checkpoint(model_name).model.to(device)
     else:
         model = BartForConditionalGeneration.from_pretrained(model_name).to(device)
