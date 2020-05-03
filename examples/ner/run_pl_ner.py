@@ -189,6 +189,8 @@ if __name__ == "__main__":
     model = NERTransformer(args)
     trainer = generic_train(model, args)
 
+    os.makedirs(args.output_dir,exist_ok=True)
+
     if args.do_predict:
         # See https://github.com/huggingface/transformers/issues/3159
         # pl use this format to create a checkpoint:

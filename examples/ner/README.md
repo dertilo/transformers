@@ -1,5 +1,25 @@
 ## Named Entity Recognition
 
+### setup on HPC
+0. `pip install -r requirements.txt`
+1. `OMP_NUM_THREADS=8 bash download_data.sh`
+2. `python preprocess.py --model_name_or_path bert-base-multilingual-cased --max_seq_length 128`
+3. `export PYTHONPATH="../":"${PYTHONPATH}"`
+4. to download pretrained model: `OMP_NUM_THREADS=8 python3 run_pl_ner.py --data_dir ./ --labels ./labels.txt --model_name_or_path $BERT_MODEL --do_train`
+### train & evaluate
+
+```shell script
+python3 run_pl_ner.py --data_dir ./ \
+--labels ./labels.txt \
+--model_name_or_path $BERT_MODEL \
+--output_dir checkpoints \
+--max_seq_length  $MAX_LENGTH \
+--num_train_epochs 3 \
+--train_batch_size 32 \
+--seed 1 \
+--do_train \
+--do_predict
+```
 Based on the scripts [`run_ner.py`](https://github.com/huggingface/transformers/blob/master/examples/ner/run_ner.py) for Pytorch and
 [`run_tf_ner.py`](https://github.com/huggingface/transformers/blob/master/examples/ner/run_tf_ner.py) for Tensorflow 2.
 This example fine-tune Bert Multilingual on GermEval 2014 (German NER).
@@ -9,36 +29,6 @@ Details and results for the fine-tuning provided by @stefan-it.
 
 Data can be obtained from the [GermEval 2014](https://sites.google.com/site/germeval2014ner/data) shared task page.
 
-Here are the commands for downloading and pre-processing train, dev and test datasets. The original data format has four (tab-separated) columns, in a pre-processing step only the two relevant columns (token and outer span NER annotation) are extracted:
-
-```bash
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-train.tsv?attredirects=0&d=1' \
-| grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > train.txt.tmp
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-dev.tsv?attredirects=0&d=1' \
-| grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > dev.txt.tmp
-curl -L 'https://sites.google.com/site/germeval2014ner/data/NER-de-test.tsv?attredirects=0&d=1' \
-| grep -v "^#" | cut -f 2,3 | tr '\t' ' ' > test.txt.tmp
-```
-
-The GermEval 2014 dataset contains some strange "control character" tokens like `'\x96', '\u200e', '\x95', '\xad' or '\x80'`. One problem with these tokens is, that `BertTokenizer` returns an empty token for them, resulting in misaligned `InputExample`s. I wrote a script that a) filters these tokens and b) splits longer sentences into smaller ones (once the max. subtoken length is reached).
-
-```bash
-wget "https://raw.githubusercontent.com/stefan-it/fine-tuned-berts-seq/master/scripts/preprocess.py"
-```
-Let's define some variables that we need for further pre-processing steps and training the model:
-
-```bash
-export MAX_LENGTH=128
-export BERT_MODEL=bert-base-multilingual-cased
-```
-
-Run the pre-processing script on training, dev and test datasets:
-
-```bash
-python3 preprocess.py train.txt.tmp $BERT_MODEL $MAX_LENGTH > train.txt
-python3 preprocess.py dev.txt.tmp $BERT_MODEL $MAX_LENGTH > dev.txt
-python3 preprocess.py test.txt.tmp $BERT_MODEL $MAX_LENGTH > test.txt
-```
 
 The GermEval 2014 dataset has much more labels than CoNLL-2002/2003 datasets, so an own set of labels must be used:
 
