@@ -1,4 +1,7 @@
 # GLUE Benchmark
+### setup
+1. pip install -r requirements.txt
+2. get data: `python3 ../../utils/download_glue_data.py`
 
 Based on the script [`run_glue.py`](https://github.com/huggingface/transformers/blob/master/examples/run_glue.py).
 

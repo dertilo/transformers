@@ -1,0 +1,2 @@
+pytorch_lightning@git+http://github.com/PyTorchLightning/pytorch-lightning.git#egg=pytorch_lightning
+scikit-learn
