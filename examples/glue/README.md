@@ -2,11 +2,17 @@
 ### setup
 1. pip install -r requirements.txt
 2. get data: `python3 ../../utils/download_glue_data.py`
+3. `mkdir mrpc-pl-bert`
+4. `export PYTHONPATH="../":"../../":"${PYTHONPATH}"`
+### train and evaluate
+`CUDA_VISIBLE_DEVICES=1 python3 run_pl_glue.py --data_dir ./glue_data/MRPC/ --task mrpc --model_name_or_path bert-base-cased --output_dir mrpc-pl-bert --max_seq_length  128 --learning_rate 2e-5 --num_train_epochs 3 --train_batch_size 8 --seed 2 --n_gpu 1 --do_train --do_predict`
 
-Based on the script [`run_glue.py`](https://github.com/huggingface/transformers/blob/master/examples/run_glue.py).
-
-#### Run PyTorch version using PyTorch-Lightning
-
-Run `bash run_pl.sh` from the `glue` directory. This will also install `pytorch-lightning` and the requirements in `examples/requirements.txt`. It is a shell pipeline that will automatically download, pre-process the data and run the specified models. Logs are saved in `lightning_logs` directory.
-
-Pass `--n_gpu` flag to change the number of GPUs. Default uses 1. At the end, the expected results are: `TEST RESULTS {'val_loss': tensor(0.0707), 'precision': 0.852427800698191, 'recall': 0.869537067011978, 'f1': 0.8608974358974358}`
+after 3 epochs and ~5 minutes: 
+```python
+# TEST RESULTS
+{'acc': 0.8676470588235294,
+ 'acc_and_f1': 0.8877484440875327,
+ 'avg_test_loss': 0.6455589532852173,
+ 'f1': 0.9078498293515359,
+ 'val_loss': 0.6455589532852173}
+```

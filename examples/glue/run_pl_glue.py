@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 import time
-from scipy.sparse import csr_matrix # TODO(tilo): if not imported before torch it throws: ImportError: /lib64/libstdc++.so.6: version `CXXABI_1.3.9' not found (required by some-path-here/lib/python3.7/site-packages/scipy/sparse/_sparsetools.cpython-37m-x86_64-linux-gnu.so)
+# from scipy.sparse import csr_matrix # TODO(tilo): if not imported before torch it throws: ImportError: /lib64/libstdc++.so.6: version `CXXABI_1.3.9' not found (required by some-path-here/lib/python3.7/site-packages/scipy/sparse/_sparsetools.cpython-37m-x86_64-linux-gnu.so)
 
 import numpy as np
 import torch
