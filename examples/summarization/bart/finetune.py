@@ -103,7 +103,9 @@ class SummarizationTrainer(BaseTransformer):
         return self.test_end(outputs)
 
     def get_dataloader(self, type_path: str, batch_size: int, shuffle: bool = False) -> DataLoader:
+        start = time.time()
         dataset = SummarizationDataset(self.tokenizer, type_path=type_path, **self.dataset_kwargs)
+        print("preparing %s-data took %0.2f seconds"%(type_path,time.time()-start))
         dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn, shuffle=shuffle)
         return dataloader
 
@@ -152,6 +154,11 @@ class SummarizationTrainer(BaseTransformer):
             required=True,
             help="The input data dir. Should contain the dataset files for the CNN/DM summarization task.",
         )
+        parser.add_argument(
+            "--checkpoint",
+            default=None,
+            type=str,
+        )
         return parser
 
 
@@ -161,7 +168,11 @@ def main(args):
     if not args.output_dir:
         args.output_dir = os.path.join("./results", f"{args.task}_{time.strftime('%Y%m%d_%H%M%S')}",)
         os.makedirs(args.output_dir)
-    model = SummarizationTrainer(args)
+
+    if args.checkpoint:
+        model = SummarizationTrainer.load_from_checkpoint(args.checkpoint)
+    else:
+        model = SummarizationTrainer(args)
     trainer = generic_train(model, args)
 
     # Optionally, predict on dev set and write to output_dir
