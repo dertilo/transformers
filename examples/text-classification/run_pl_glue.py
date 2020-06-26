@@ -6,6 +6,7 @@ import time
 
 import numpy as np
 import torch
+from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader, TensorDataset
 
 from lightning_base import BaseTransformer, add_generic_args, generic_train
@@ -24,6 +25,8 @@ class GLUETransformer(BaseTransformer):
     mode = "sequence-classification"
 
     def __init__(self, hparams):
+        if isinstance(hparams,dict):
+            hparams = argparse.Namespace(**hparams)
         hparams.glue_output_mode = glue_output_modes[hparams.task]
         num_labels = glue_tasks_num_labels[hparams.task]
 
@@ -53,10 +56,10 @@ class GLUETransformer(BaseTransformer):
         for mode in ["train", "dev"]:
             cached_features_file = self._feature_file(mode)
             if os.path.exists(cached_features_file) and not args.overwrite_cache:
-                logger.info("Loading features from cached file %s", cached_features_file)
+                # logger.info("Loading features from cached file %s", cached_features_file)
                 features = torch.load(cached_features_file)
             else:
-                logger.info("Creating features from dataset file at %s", args.data_dir)
+                # logger.info("Creating features from dataset file at %s", args.data_dir)
                 examples = (
                     processor.get_dev_examples(args.data_dir)
                     if mode == "dev"
@@ -69,7 +72,7 @@ class GLUETransformer(BaseTransformer):
                     label_list=self.labels,
                     output_mode=args.glue_output_mode,
                 )
-                logger.info("Saving features into cached file %s", cached_features_file)
+                # logger.info("Saving features into cached file %s", cached_features_file)
                 torch.save(features, cached_features_file)
 
     def load_dataset(self, mode, batch_size):
@@ -79,7 +82,7 @@ class GLUETransformer(BaseTransformer):
         mode = "dev" if mode == "test" else mode
 
         cached_features_file = self._feature_file(mode)
-        logger.info("Loading features from cached file %s", cached_features_file)
+        # logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
@@ -180,7 +183,10 @@ if __name__ == "__main__":
         os.makedirs(args.output_dir)
 
     model = GLUETransformer(args)
-    trainer = generic_train(model, args)
+
+    logger = WandbLogger(name=model.output_dir.name, project="glue-mrpc")
+
+    trainer = generic_train(model, args,logger=logger)
 
     # Optionally, predict on dev set and write to output_dir
     if args.do_predict:
