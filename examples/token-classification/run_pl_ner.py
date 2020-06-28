@@ -5,6 +5,7 @@ import os
 
 import numpy as np
 import torch
+from pytorch_lightning.loggers import WandbLogger
 from seqeval.metrics import f1_score, precision_score, recall_score
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, TensorDataset
@@ -24,6 +25,8 @@ class NERTransformer(BaseTransformer):
     mode = "token-classification"
 
     def __init__(self, hparams):
+        if isinstance(hparams,dict):
+            hparams = argparse.Namespace(**hparams)
         self.labels = get_labels(hparams.labels)
         num_labels = len(self.labels)
         self.pad_token_label_id = CrossEntropyLoss().ignore_index
@@ -51,10 +54,10 @@ class NERTransformer(BaseTransformer):
         for mode in ["train", "dev", "test"]:
             cached_features_file = self._feature_file(mode)
             if os.path.exists(cached_features_file) and not args.overwrite_cache:
-                logger.info("Loading features from cached file %s", cached_features_file)
+                # logger.info("Loading features from cached file %s", cached_features_file)
                 features = torch.load(cached_features_file)
             else:
-                logger.info("Creating features from dataset file at %s", args.data_dir)
+                # logger.info("Creating features from dataset file at %s", args.data_dir)
                 examples = read_examples_from_file(args.data_dir, mode)
                 features = convert_examples_to_features(
                     examples,
@@ -71,13 +74,13 @@ class NERTransformer(BaseTransformer):
                     pad_token_segment_id=self.tokenizer.pad_token_type_id,
                     pad_token_label_id=self.pad_token_label_id,
                 )
-                logger.info("Saving features into cached file %s", cached_features_file)
+                # logger.info("Saving features into cached file %s", cached_features_file)
                 torch.save(features, cached_features_file)
 
     def load_dataset(self, mode, batch_size):
         "Load datasets. Called after prepare data."
         cached_features_file = self._feature_file(mode)
-        logger.info("Loading features from cached file %s", cached_features_file)
+        # logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
@@ -190,7 +193,8 @@ if __name__ == "__main__":
     parser = NERTransformer.add_model_specific_args(parser, os.getcwd())
     args = parser.parse_args()
     model = NERTransformer(args)
-    trainer = generic_train(model, args)
+    logger = WandbLogger(name=model.output_dir.name, project="sequence-tagging")
+    trainer = generic_train(model, args,logger=logger)
 
     if args.do_predict:
         # See https://github.com/huggingface/transformers/issues/3159
