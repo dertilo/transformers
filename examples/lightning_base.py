@@ -188,6 +188,9 @@ class BaseTransformer(pl.LightningModule):
             "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name"
         )
         parser.add_argument(
+            "--wandb_project", default="", type=str
+        )
+        parser.add_argument(
             "--tokenizer_name",
             default=None,
             type=str,

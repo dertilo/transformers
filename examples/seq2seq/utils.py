@@ -5,7 +5,11 @@ import pickle
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List
 
-import git
+try:
+    import git
+except:
+    print("NO GIT on HPC!")
+
 import numpy as np
 import torch
 from rouge_score import rouge_scorer, scoring
@@ -211,12 +215,20 @@ def load_json(path):
 
 
 def get_git_info():
-    repo = git.Repo(search_parent_directories=True)
-    repo_infos = {
-        "repo_id": str(repo),
-        "repo_sha": str(repo.head.object.hexsha),
-        "repo_branch": str(repo.active_branch),
-    }
+    try:
+        repo = git.Repo(search_parent_directories=True)
+        repo_infos = {
+            "repo_id": str(repo),
+            "repo_sha": str(repo.head.object.hexsha),
+            "repo_branch": str(repo.active_branch),
+        }
+    except:
+        repo_infos = {
+            "repo_id": "https://github.com/dertilo/transformers",
+            "repo_sha": "None",
+            "repo_branch": "lightning_examples",
+        }
+
     return repo_infos
 
 
