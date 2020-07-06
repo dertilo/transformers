@@ -46,7 +46,7 @@ def generate_summaries_or_translations(
         if "t5" in model_name:
             batch = [model.config.prefix + text for text in batch]
         batch = tokenizer.batch_encode_plus(
-            batch, max_length=1024, return_tensors="pt", truncation=True, pad_to_max_length=True
+            batch, return_tensors="pt", truncation=True, pad_to_max_length=True
         ).to(device)
         summaries = model.generate(**batch, **gen_kwargs)
         dec = tokenizer.batch_decode(summaries, skip_special_tokens=True, clean_up_tokenization_spaces=False)
@@ -80,7 +80,7 @@ def run_generate():
         reference_lns = [x.rstrip() for x in open(args.reference_path).readlines()]
         scores: dict = score_fn(output_lns, reference_lns)
         if args.score_path is not None:
-            json.dump(scores, open("score_path", "w+"))
+            json.dump(scores, open(args.score_path, "w+"))
     return scores
 
 
