@@ -59,6 +59,8 @@ class SummarizationModule(BaseTransformer):
     val_metric = "rouge2"
 
     def __init__(self, hparams, **kwargs):
+        if isinstance(hparams,dict):
+            hparams = argparse.Namespace(**hparams)
         super().__init__(hparams, num_labels=None, mode=self.mode, **kwargs)
         use_task_specific_params(self.model, "summarization")
         save_git_info(self.hparams.output_dir)
@@ -307,7 +309,7 @@ def main(args, model=None) -> SummarizationModule:
     elif args.logger == "wandb":
         from pytorch_lightning.loggers import WandbLogger
 
-        logger = WandbLogger(name=model.output_dir.name, project=args.wandb_project)
+        logger = WandbLogger(name=model.output_dir.name, project=args.wandb_project,offline=True)
 
     elif args.logger == "wandb_shared":
         from pytorch_lightning.loggers import WandbLogger
