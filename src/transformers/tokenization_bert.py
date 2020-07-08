@@ -263,7 +263,7 @@ class BertTokenizer(PreTrainedTokenizer):
     ) -> List[int]:
         """
         Retrieves sequence ids from a token list that has no special tokens added. This method is called when adding
-        special tokens using the tokenizer ``prepare_for_model`` or ``encode_plus`` methods.
+        special tokens using the tokenizer ``prepare_for_model`` method.
 
         Args:
             token_ids_0 (:obj:`List[int]`):
@@ -606,7 +606,7 @@ class BertTokenizerFast(PreTrainedTokenizerFast):
         mask_token="[MASK]",
         clean_text=True,
         tokenize_chinese_chars=True,
-        strip_accents=True,
+        strip_accents=None,
         wordpieces_prefix="##",
         **kwargs
     ):

@@ -609,7 +609,7 @@ TRANSFO_XL_INPUTS_DOCSTRING = r"""
 
             Indices can be obtained using :class:`transformers.TransfoXLTokenizer`.
             See :func:`transformers.PreTrainedTokenizer.encode` and
-            :func:`transformers.PreTrainedTokenizer.encode_plus` for details.
+            :func:`transformers.PreTrainedTokenizer.__call__` for details.
 
             `What are input IDs? <../glossary.html#input-ids>`__
         mems (:obj:`List[torch.FloatTensor]` of length :obj:`config.n_layers`):
@@ -1016,11 +1016,14 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
             return self.crit.out_layers[-1]
 
     def prepare_inputs_for_generation(self, input_ids, past, **model_kwargs):
-        inputs = {"input_ids": input_ids}
+        inputs = {}
 
         # if past is defined in model kwargs then use it for faster decoding
         if past:
             inputs["mems"] = past
+            inputs["input_ids"] = input_ids[:, -1].unsqueeze(-1)
+        else:
+            inputs["input_ids"] = input_ids
 
         return inputs
 

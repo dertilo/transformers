@@ -62,17 +62,26 @@ PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
 
 class RobertaTokenizer(GPT2Tokenizer):
     """
-    Constructs a RoBERTa BPE tokenizer, derived from the GPT-2 tokenizer. Peculiarities:
+    Constructs a RoBERTa BPE tokenizer, derived from the GPT-2 tokenizer, using byte-level Byte-Pair-Encoding.
 
-    - Byte-level Byte-Pair-Encoding
-    - Requires a space to start the input string => the encoding methods should be called with the
-      ``add_prefix_space`` flag set to ``True``.
-      Otherwise, this tokenizer ``encode`` and ``decode`` method will not conserve
-      the absence of a space at the beginning of a string:
+    This tokenizer has been trained to treat spaces like parts of the tokens (a bit like sentencepiece) so a word will
+    be encoded differently whether it is at the beginning of the sentence (without space) or not:
 
     ::
 
-        tokenizer.decode(tokenizer.encode("Hello")) = " Hello"
+        >>> from transformers import RobertaTokenizer
+        >>> tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        >>> tokenizer("Hello world")['input_ids']
+        [0, 31414, 232, 328, 2]
+        >>> tokenizer(" Hello world")['input_ids']
+        [0, 20920, 232, 2]
+
+    You can get around that behavior by passing ``add_prefix_space=True`` when instantiating this tokenizer or when you
+    call it on some text, but since the model was not pretrained this way, it might yield a decrease in performance.
+
+    .. note::
+
+        When used with ``is_pretokenized=True``, this tokenizer will add a space before each word (even the first one).
 
     This tokenizer inherits from :class:`~transformers.PreTrainedTokenizer` which contains most of the methods. Users
     should refer to the superclass for more information regarding methods.
@@ -193,7 +202,7 @@ class RobertaTokenizer(GPT2Tokenizer):
     ) -> List[int]:
         """
         Retrieves sequence ids from a token list that has no special tokens added. This method is called when adding
-        special tokens using the tokenizer ``prepare_for_model`` or ``encode_plus`` methods.
+        special tokens using the tokenizer ``prepare_for_model`` method.
 
         Args:
             token_ids_0 (:obj:`List[int]`):
@@ -244,26 +253,35 @@ class RobertaTokenizer(GPT2Tokenizer):
 
     def prepare_for_tokenization(self, text, is_pretokenized=False, **kwargs):
         add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
-        if (is_pretokenized or add_prefix_space) and text:
+        if (is_pretokenized or add_prefix_space) and (len(text) > 0 and not text[0].isspace()):
             text = " " + text
         return (text, kwargs)
 
 
 class RobertaTokenizerFast(GPT2TokenizerFast):
     """
-    Constructs a "Fast" RoBERTa BPE tokenizer (backed by HuggingFace's `tokenizers` library).
+    Constructs a "Fast" RoBERTa BPE tokenizer (backed by HuggingFace's `tokenizers` library), derived from the GPT-2
+    tokenizer, using byte-level Byte-Pair-Encoding.
 
-    Peculiarities:
-
-    - Byte-level Byte-Pair-Encoding
-    - Requires a space to start the input string => the encoding methods should be called with the
-      ``add_prefix_space`` flag set to ``True``.
-      Otherwise, this tokenizer ``encode`` and ``decode`` method will not conserve
-      the absence of a space at the beginning of a string:
+    This tokenizer has been trained to treat spaces like parts of the tokens (a bit like sentencepiece) so a word will
+    be encoded differently whether it is at the beginning of the sentence (without space) or not:
 
     ::
 
-        tokenizer.decode(tokenizer.encode("Hello")) = " Hello"
+        >>> from transformers import RobertaTokenizerFast
+        >>> tokenizer = RobertaTokenizerFast.from_pretrained("roberta-base")
+        >>> tokenizer("Hello world")['input_ids']
+        [0, 31414, 232, 328, 2]
+        >>> tokenizer(" Hello world")['input_ids']
+        [0, 20920, 232, 2]
+
+    You can get around that behavior by passing ``add_prefix_space=True`` when instantiating this tokenizer or when you
+    call it on some text, but since the model was not pretrained this way, it might yield a decrease in performance.
+
+    .. note::
+
+        When used with ``is_pretokenized=True``, this tokenizer needs to be instantiated with
+        ``add_prefix_space=True``.
 
     This tokenizer inherits from :class:`~transformers.PreTrainedTokenizerFast` which contains most of the methods. Users
     should refer to the superclass for more information regarding methods.

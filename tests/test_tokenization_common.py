@@ -22,8 +22,9 @@ import tempfile
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
-from tests.utils import require_tf, require_torch, slow
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerBase, PreTrainedTokenizerFast
+from transformers.testing_utils import require_tf, require_torch, slow
+from transformers.tokenization_utils import AddedToken
 
 
 if TYPE_CHECKING:
@@ -232,6 +233,12 @@ class TokenizerTesterMixin:
                 subwords_loaded = tokenizer_new.tokenize(text)
 
                 self.assertListEqual(subwords, subwords_loaded)
+
+    def test_pickle_added_tokens(self):
+        tok1 = AddedToken("<s>", rstrip=True, lstrip=True, normalized=False, single_word=True)
+        tok2 = pickle.loads(pickle.dumps(tok1))
+
+        self.assertEqual(tok1.__getstate__(), tok2.__getstate__())
 
     def test_added_tokens_do_lower_case(self):
         # TODO(thom) activate fast tokenizer tests once Rust tokenizers accepts white spaces in added tokens
@@ -508,9 +515,7 @@ class TokenizerTesterMixin:
                     self.assertEqual(len(truncated_sequence), total_length - 2)
                     self.assertEqual(truncated_sequence, sequence[:-2])
 
-                    self.assertEqual(
-                        len(overflowing_tokens), 0
-                    )  # No overflowing tokens when using 'longest' in python tokenizers
+                    self.assertEqual(len(overflowing_tokens), 2 + stride)
 
     def test_maximum_encoding_length_pair_input(self):
         tokenizers = self.get_tokenizers(do_lower_case=False, model_max_length=100)
@@ -634,7 +639,39 @@ class TokenizerTesterMixin:
                     self.assertEqual(truncated_sequence, truncated_longest_sequence)
 
                     self.assertEqual(
-                        len(overflowing_tokens), 0
+                        len(overflowing_tokens), 2 + stride
+                    )  # No overflowing tokens when using 'longest' in python tokenizers
+
+                information = tokenizer.encode_plus(
+                    seq_0,
+                    seq_1,
+                    max_length=len(sequence) - 2,
+                    add_special_tokens=False,
+                    stride=stride,
+                    truncation=True,
+                    return_overflowing_tokens=True,
+                    # add_prefix_space=False,
+                )
+                # Overflowing tokens are handled quite differently in slow and fast tokenizers
+                if isinstance(tokenizer, PreTrainedTokenizerFast):
+                    truncated_sequence = information["input_ids"][0]
+                    overflowing_tokens = information["input_ids"][1]
+                    self.assertEqual(len(information["input_ids"]), 2)
+
+                    self.assertEqual(len(truncated_sequence), len(sequence) - 2)
+                    self.assertEqual(truncated_sequence, truncated_longest_sequence)
+
+                    self.assertEqual(len(overflowing_tokens), 2 + stride + len(smallest))
+                    self.assertEqual(overflowing_tokens, overflow_longest_sequence)
+                else:
+                    truncated_sequence = information["input_ids"]
+                    overflowing_tokens = information["overflowing_tokens"]
+
+                    self.assertEqual(len(truncated_sequence), len(sequence) - 2)
+                    self.assertEqual(truncated_sequence, truncated_longest_sequence)
+
+                    self.assertEqual(
+                        len(overflowing_tokens), 2 + stride
                     )  # No overflowing tokens when using 'longest' in python tokenizers
 
                 information_first_truncated = tokenizer.encode_plus(
@@ -643,7 +680,7 @@ class TokenizerTesterMixin:
                     max_length=len(sequence) - 2,
                     add_special_tokens=False,
                     stride=stride,
-                    truncation=True,
+                    truncation="only_first",
                     return_overflowing_tokens=True,
                     # add_prefix_space=False,
                 )
@@ -866,6 +903,7 @@ class TokenizerTesterMixin:
                 tokenizer.padding_side = "right"
                 encoded_sequence = tokenizer.encode(sequence)
                 sequence_length = len(encoded_sequence)
+                # FIXME: the next line should be padding(max_length) to avoid warning
                 padded_sequence = tokenizer.encode(
                     sequence, max_length=sequence_length + padding_size, pad_to_max_length=True
                 )
@@ -882,6 +920,40 @@ class TokenizerTesterMixin:
                 padded_sequence_right_length = len(padded_sequence_right)
                 assert sequence_length == padded_sequence_right_length
                 assert encoded_sequence == padded_sequence_right
+
+    def test_padding_to_multiple_of(self):
+        tokenizers = self.get_tokenizers()
+        for tokenizer in tokenizers:
+            if tokenizer.pad_token is None:
+                self.skipTest("No padding token.")
+            else:
+                with self.subTest(f"{tokenizer.__class__.__name__}"):
+                    empty_tokens = tokenizer("", padding=True, pad_to_multiple_of=8)
+                    normal_tokens = tokenizer("This is a sample input", padding=True, pad_to_multiple_of=8)
+                    for key, value in empty_tokens.items():
+                        self.assertEqual(len(value) % 8, 0, "BatchEncoding.{} is not multiple of 8".format(key))
+                    for key, value in normal_tokens.items():
+                        self.assertEqual(len(value) % 8, 0, "BatchEncoding.{} is not multiple of 8".format(key))
+
+                    normal_tokens = tokenizer("This", pad_to_multiple_of=8)
+                    for key, value in normal_tokens.items():
+                        self.assertNotEqual(len(value) % 8, 0, "BatchEncoding.{} is not multiple of 8".format(key))
+
+                    # Should also work with truncation
+                    normal_tokens = tokenizer("This", padding=True, truncation=True, pad_to_multiple_of=8)
+                    for key, value in normal_tokens.items():
+                        self.assertEqual(len(value) % 8, 0, "BatchEncoding.{} is not multiple of 8".format(key))
+
+                    # truncation to something which is not a multiple of pad_to_multiple_of raises an error
+                    self.assertRaises(
+                        ValueError,
+                        tokenizer.__call__,
+                        "This",
+                        padding=True,
+                        truncation=True,
+                        max_length=12,
+                        pad_to_multiple_of=8,
+                    )
 
     def test_encode_plus_with_padding(self):
         tokenizers = self.get_tokenizers(do_lower_case=False)
@@ -1258,6 +1330,16 @@ class TokenizerTesterMixin:
                 )
                 for key in output.keys():
                     self.assertEqual(output[key], output_sequence[key])
+
+    def test_prepare_for_model(self):
+        tokenizers = self.get_tokenizers(do_lower_case=False)
+        for tokenizer in tokenizers:
+            string_sequence = "Testing the prepare_for_model method."
+            ids = tokenizer.encode(string_sequence, add_special_tokens=False)
+            input_dict = tokenizer.encode_plus(string_sequence)
+            prepared_input_dict = tokenizer.prepare_for_model(ids)
+
+            self.assertEqual(input_dict, prepared_input_dict)
 
     @require_torch
     @require_tf

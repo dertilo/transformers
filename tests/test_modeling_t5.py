@@ -17,10 +17,10 @@
 import unittest
 
 from transformers import is_torch_available
+from transformers.testing_utils import require_torch, slow, torch_device
 
 from .test_configuration_common import ConfigTester
 from .test_modeling_common import ModelTesterMixin, ids_tensor
-from .utils import require_torch, slow, torch_device
 
 
 if is_torch_available():
@@ -351,6 +351,16 @@ class T5ModelTest(ModelTesterMixin, unittest.TestCase):
             model = T5Model.from_pretrained(model_name)
             self.assertIsNotNone(model)
 
+    def test_export_to_onnx(self):
+        import tempfile
+
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        model = T5Model(config_and_inputs[0])
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            torch.onnx.export(
+                model, config_and_inputs[1], f"{tmpdirname}/t5_test.onnx", export_params=True, opset_version=9,
+            )
+
 
 @require_torch
 class T5ModelIntegrationTests(unittest.TestCase):
@@ -375,10 +385,11 @@ class T5ModelIntegrationTests(unittest.TestCase):
         summarization_config = task_specific_config.get("summarization", {})
         model.config.update(summarization_config)
 
-        dct = tok.batch_encode_plus(
+        dct = tok(
             [model.config.prefix + x for x in [FRANCE_ARTICLE, SHORTER_ARTICLE, IRAN_ARTICLE, ARTICLE_SUBWAY]],
             max_length=512,
-            pad_to_max_length=True,
+            padding="max_length",
+            truncation=True,
             return_tensors="pt",
         )
         self.assertEqual(512, dct["input_ids"].shape[1])

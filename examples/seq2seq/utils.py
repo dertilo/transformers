@@ -18,6 +18,8 @@ from torch import nn
 from torch.utils.data import Dataset, Sampler
 from tqdm import tqdm
 
+from transformers import BartTokenizer
+
 
 def encode_file(
     tokenizer,
@@ -29,6 +31,7 @@ def encode_file(
     prefix="",
     tok_name="",
 ):
+    extra_kw = {"add_prefix_space": True} if isinstance(tokenizer, BartTokenizer) else {}
     cache_path = Path(f"{data_path}_{tok_name}{max_length}.pt")
     if not overwrite_cache and cache_path.exists():
         try:
@@ -45,13 +48,13 @@ def encode_file(
     assert lns, f"found empty file at {data_path}"
     examples = []
     for text in tqdm(lns, desc=f"Tokenizing {data_path.name}"):
-        tokenized = tokenizer.batch_encode_plus(
+        tokenized = tokenizer(
             [text],
             max_length=max_length,
-            pad_to_max_length=pad_to_max_length,
-            add_prefix_space=True,
+            padding="max_length" if pad_to_max_length else None,
             truncation=True,
             return_tensors=return_tensors,
+            **extra_kw,
         )
         assert tokenized.input_ids.shape[1] == max_length
         examples.append(tokenized)
@@ -64,8 +67,9 @@ def lmap(f: Callable, x: Iterable) -> List:
     return list(map(f, x))
 
 
-def calculate_bleu_score(output_lns, refs_lns) -> dict:
-    return {"bleu": corpus_bleu(output_lns, [refs_lns]).score}
+def calculate_bleu_score(output_lns, refs_lns, **kwargs) -> dict:
+    """Uses sacrebleu's corpus_bleu implementation."""
+    return {"bleu": corpus_bleu(output_lns, [refs_lns], **kwargs).score}
 
 
 def trim_batch(
@@ -90,9 +94,14 @@ class SummarizationDataset(Dataset):
         n_obs=None,
         overwrite_cache=False,
         prefix="",
+        src_lang=None,
+        tgt_lang=None,
     ):
         super().__init__()
+        # FIXME: the rstrip logic strips all the chars, it seems.
         tok_name = tokenizer.__class__.__name__.lower().rstrip("tokenizer")
+        if hasattr(tokenizer, "set_lang") and src_lang is not None:
+            tokenizer.set_lang(src_lang)  # HACK: only applies to mbart
         self.source = encode_file(
             tokenizer,
             os.path.join(data_dir, type_path + ".source"),
@@ -103,7 +112,8 @@ class SummarizationDataset(Dataset):
         )
         tgt_path = os.path.join(data_dir, type_path + ".target")
         if hasattr(tokenizer, "set_lang"):
-            tokenizer.set_lang("ro_RO")  # HACK: only applies to mbart
+            assert tgt_lang is not None, "--tgt_lang must be passed to build a translation"
+            tokenizer.set_lang(tgt_lang)  # HACK: only applies to mbart
         self.target = encode_file(
             tokenizer, tgt_path, max_target_length, overwrite_cache=overwrite_cache, tok_name=tok_name
         )
@@ -235,8 +245,8 @@ def get_git_info():
 ROUGE_KEYS = ["rouge1", "rouge2", "rougeL"]
 
 
-def calculate_rouge(output_lns: List[str], reference_lns: List[str]) -> Dict:
-    scorer = rouge_scorer.RougeScorer(ROUGE_KEYS, use_stemmer=True)
+def calculate_rouge(output_lns: List[str], reference_lns: List[str], use_stemmer=True) -> Dict:
+    scorer = rouge_scorer.RougeScorer(ROUGE_KEYS, use_stemmer=use_stemmer)
     aggregator = scoring.BootstrapAggregator()
 
     for reference_ln, output_ln in zip(reference_lns, output_lns):

@@ -21,8 +21,7 @@ import unittest
 from typing import List
 
 from transformers import is_torch_available
-
-from .utils import require_multigpu, require_torch, slow, torch_device
+from transformers.testing_utils import require_multigpu, require_torch, slow, torch_device
 
 
 if is_torch_available():
@@ -613,15 +612,11 @@ class ModelTesterMixin:
             if model_not_tied.get_output_embeddings() is None:
                 continue
 
-            params_not_tied = list(model_not_tied.parameters())
-
             config_tied = copy.deepcopy(config)
             config_tied.torchscript = False
             model_tied = model_class(config_tied)
             params_tied = list(model_tied.parameters())
-
             # Check that the embedding layer and decoding layer are the same in size and in value
-            self.assertGreater(len(params_not_tied), len(params_tied))
             # self.assertTrue(check_same_values(embeddings, decoding))
 
             # # Check that after modification, they remain the same.
@@ -639,7 +634,6 @@ class ModelTesterMixin:
             # Check that after resize they remain tied.
             model_tied.resize_token_embeddings(config.vocab_size + 10)
             params_tied_2 = list(model_tied.parameters())
-            self.assertGreater(len(params_not_tied), len(params_tied))
             self.assertEqual(len(params_tied_2), len(params_tied))
 
             # decoding.weight.data.mul_(20)
@@ -812,7 +806,7 @@ class ModelTesterMixin:
             # Wrap model in nn.DataParallel
             model = torch.nn.DataParallel(model)
             with torch.no_grad():
-                _ = model(**inputs_dict)
+                _ = model(**self._prepare_for_class(inputs_dict, model_class))
 
 
 global_rng = random.Random()
