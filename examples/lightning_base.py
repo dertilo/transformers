@@ -266,7 +266,9 @@ def add_generic_args(parser, root_dir) -> None:
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
         "See details at https://nvidia.github.io/apex/amp.html",
     )
-    parser.add_argument("--n_tpu_cores", dest="tpu_cores", type=int, default=0)
+    parser.add_argument("--gpus", type=int, default=1) # TODO(tilo): why did they remove it?
+    parser.add_argument("--val_check_interval", default=1.0, type=float) # TODO(tilo): why did they remove it?
+    parser.add_argument("--n_tpu_cores", dest="tpu_cores", type=int, default=None) # tilo: see lightning trainer line 365
     parser.add_argument("--max_grad_norm", dest="gradient_clip_val", default=1.0, type=float, help="Max gradient norm")
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
     parser.add_argument("--do_predict", action="store_true", help="Whether to run predictions on the test set.")
