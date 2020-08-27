@@ -64,12 +64,13 @@ class SummarizationModule(BaseTransformer):
     def __init__(self, hparams, **kwargs):
         if isinstance(hparams,dict):
             hparams = argparse.Namespace(**hparams)
+            hparams.model_name_or_path="facebook/bart-large-cnn"
         super().__init__(hparams, num_labels=None, mode=self.mode, **kwargs)
         use_task_specific_params(self.model, "summarization")
-        save_git_info(self.hparams.output_dir)
+        # save_git_info(self.hparams.output_dir)
         self.metrics_save_path = Path(self.output_dir) / "metrics.json"
         self.hparams_save_path = Path(self.output_dir) / "hparams.pkl"
-        pickle_save(self.hparams, self.hparams_save_path)
+        # pickle_save(self.hparams, self.hparams_save_path)
         self.step_count = 0
         self.metrics = defaultdict(list)
 
@@ -78,29 +79,29 @@ class SummarizationModule(BaseTransformer):
             max_source_length=self.hparams.max_source_length,
             prefix=self.model.config.prefix or "",
         )
-        n_observations_per_split = {
-            "train": self.hparams.n_train,
-            "val": self.hparams.n_val,
-            "test": self.hparams.n_test,
-        }
-        self.n_obs = {k: v if v >= 0 else None for k, v in n_observations_per_split.items()}
+        # n_observations_per_split = {
+        #     "train": self.hparams.n_train,
+        #     "val": self.hparams.n_val,
+        #     "test": self.hparams.n_test,
+        # }
+        # self.n_obs = {k: v if v >= 0 else None for k, v in n_observations_per_split.items()}
 
-        self.target_lens = {
-            "train": self.hparams.max_target_length,
-            "val": self.hparams.val_max_target_length,
-            "test": self.hparams.test_max_target_length,
-        }
-        assert self.target_lens["train"] <= self.target_lens["val"], f"target_lens: {self.target_lens}"
-        assert self.target_lens["train"] <= self.target_lens["test"], f"target_lens: {self.target_lens}"
+        # self.target_lens = {
+        #     "train": self.hparams.max_target_length,
+        #     "val": self.hparams.val_max_target_length,
+        #     "test": self.hparams.test_max_target_length,
+        # }
+        # assert self.target_lens["train"] <= self.target_lens["val"], f"target_lens: {self.target_lens}"
+        # assert self.target_lens["train"] <= self.target_lens["test"], f"target_lens: {self.target_lens}"
 
-        if self.hparams.freeze_embeds:
-            self.freeze_embeds()
-        if self.hparams.freeze_encoder:
-            freeze_params(self.model.get_encoder())
-            assert_all_frozen(self.model.get_encoder())
+        # if self.hparams.freeze_embeds:
+        #     self.freeze_embeds()
+        # if self.hparams.freeze_encoder:
+        #     freeze_params(self.model.get_encoder())
+        #     assert_all_frozen(self.model.get_encoder())
 
-        self.hparams.git_sha = get_git_info()["repo_sha"]
-        self.num_workers = hparams.num_workers
+        # self.hparams.git_sha = get_git_info()["repo_sha"]
+        # self.num_workers = hparams.num_workers
         self.decoder_start_token_id = None
 
     def freeze_embeds(self):
