@@ -977,6 +977,10 @@ class Trainer:
         if is_wandb_available():
             if self.is_world_process_zero():
                 wandb.log(logs, step=self.global_step)
+            else:
+                assert False
+        else:
+            assert False
         if is_comet_available():
             if self.is_world_process_zero():
                 experiment = comet_ml.config.get_global_experiment()
