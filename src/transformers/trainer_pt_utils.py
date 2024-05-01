@@ -18,6 +18,7 @@ Torch utilities for the Trainer class.
 
 import copy
 import datetime
+import importlib
 import io
 import json
 import math
@@ -34,7 +35,8 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch import nn
-from torch.optim.lr_scheduler import LRScheduler
+
+
 from torch.utils.data import Dataset, IterableDataset, RandomSampler, Sampler
 from torch.utils.data.distributed import DistributedSampler
 
@@ -42,6 +44,55 @@ from .integrations.deepspeed import is_deepspeed_zero3_enabled
 from .tokenization_utils_base import BatchEncoding
 from .utils import is_sagemaker_mp_enabled, is_torch_xla_available, is_training_run_on_sagemaker, logging
 
+"""
+to get it running on old torch version (1.12.1+cu113), I had to patch this, see: 
+
+https://github.com/pacman100/accelerate/blob/06b138d84537ffb2d1d404f2f198a0446e8d7ec3/src/accelerate/utils/versions.py#L18
+
+https://github.com/huggingface/accelerate/pull/878/commits/c79a8076264ebf7c02d40528dce26c125e7cffbb
+"""
+def is_torch_version(operation: str, version: str):
+    """
+    Compares the current PyTorch version to a given reference with an operation.
+
+    Args:
+        operation (`str`):
+            A string representation of an operator, such as `">"` or `"<="`
+        version (`str`):
+            A string version of PyTorch
+    """
+    return compare_versions(torch_version, operation, version)
+
+
+from packaging.version import Version, parse
+torch_version = parse(importlib.metadata.version("torch"))
+import operator as op
+STR_OPERATION_TO_FUNC = {">": op.gt, ">=": op.ge, "==": op.eq, "!=": op.ne, "<=": op.le, "<": op.lt}
+
+def compare_versions(library_or_version:Version, operation: str, requirement_version: str):
+    """
+    Compares a library version to some requirement using a given operation.
+
+    Args:
+        library_or_version (`str` or `packaging.version.Version`):
+            A library name or a version to check.
+        operation (`str`):
+            A string representation of an operator, such as `">"` or `"<="`.
+        requirement_version (`str`):
+            The version to compare the library version against
+    """
+    if operation not in STR_OPERATION_TO_FUNC.keys():
+        raise ValueError(f"`operation` must be one of {list(STR_OPERATION_TO_FUNC.keys())}, received {operation}")
+    operation = STR_OPERATION_TO_FUNC[operation]
+    if isinstance(library_or_version, str):
+        library_or_version = parse(importlib.metadata.version(library_or_version))
+    return operation(library_or_version, parse(requirement_version))
+
+
+if is_torch_version("<=", "1.13.5"):
+    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
+else:
+    from torch.optim.lr_scheduler import LRScheduler as LRScheduler
 
 if is_training_run_on_sagemaker():
     logging.add_handler(StreamHandler(sys.stdout))
